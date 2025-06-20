@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>視頻電視牆 - 首頁</title>
-    <!-- Updated: Railway API integration -->
+    <title>Video Wall - Create Your Room</title>
     <style>
         * {
             margin: 0;
@@ -13,178 +12,264 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="25" cy="25" r="1" fill="white" opacity="0.1"/><circle cx="75" cy="75" r="1" fill="white" opacity="0.1"/><circle cx="50" cy="10" r="0.5" fill="white" opacity="0.15"/><circle cx="10" cy="60" r="0.8" fill="white" opacity="0.08"/><circle cx="90" cy="40" r="0.6" fill="white" opacity="0.12"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            pointer-events: none;
         }
 
         .container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
-            max-width: 500px;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border-radius: 24px;
+            padding: 48px;
+            max-width: 480px;
             width: 90%;
             text-align: center;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            box-shadow: 
+                0 32px 64px rgba(0, 0, 0, 0.25),
+                0 0 0 1px rgba(255, 255, 255, 0.1);
+            position: relative;
+            z-index: 1;
+        }
+
+        .icon {
+            font-size: 4em;
+            margin-bottom: 16px;
+            display: block;
+            filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
         }
 
         h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            font-size: 2.8em;
+            margin-bottom: 8px;
+            font-weight: 700;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            letter-spacing: -0.02em;
         }
 
         .subtitle {
-            font-size: 1.1em;
-            opacity: 0.8;
-            margin-bottom: 40px;
-        }
-
-        .action-section {
-            margin-bottom: 30px;
-        }
-
-        .action-title {
-            font-size: 1.3em;
-            margin-bottom: 15px;
-            color: #4ecdc4;
+            font-size: 1.2em;
+            opacity: 0.85;
+            margin-bottom: 48px;
+            font-weight: 400;
+            line-height: 1.5;
         }
 
         .input-group {
-            margin-bottom: 20px;
+            margin-bottom: 32px;
+        }
+
+        .input-label {
+            display: block;
+            font-size: 1em;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #4ecdc4;
+            text-align: left;
         }
 
         input[type="text"] {
             width: 100%;
-            padding: 15px;
+            padding: 18px 20px;
             border: none;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.25);
             color: white;
-            font-size: 1em;
-            margin-bottom: 15px;
+            font-size: 1.1em;
+            margin-bottom: 24px;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            background: rgba(255, 255, 255, 0.3);
+            border-color: rgba(255, 255, 255, 0.4);
+            transform: translateY(-2px);
         }
 
         input[type="text"]::placeholder {
             color: rgba(255, 255, 255, 0.7);
+            font-weight: 400;
         }
 
         .btn {
-            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            background: linear-gradient(135deg, #ff6b6b 0%, #4ecdc4 100%);
             color: white;
             border: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-size: 1.1em;
+            padding: 18px 36px;
+            border-radius: 20px;
+            font-size: 1.2em;
+            font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
             width: 100%;
-            margin-bottom: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s;
+        }
+
+        .btn:hover::before {
+            left: 100%;
         }
 
         .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(255, 107, 107, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 16px 32px rgba(255, 107, 107, 0.4);
         }
 
-        .btn.secondary {
-            background: linear-gradient(45deg, #667eea, #764ba2);
+        .btn:active {
+            transform: translateY(-1px);
         }
 
-        .divider {
-            margin: 30px 0;
-            position: relative;
+        .features {
+            margin-top: 40px;
+            padding-top: 32px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
         }
 
-        .divider::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 0;
-            right: 0;
-            height: 1px;
-            background: rgba(255, 255, 255, 0.3);
+        .feature-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 20px;
         }
 
-        .divider span {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 0 20px;
-            position: relative;
+        .feature-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .feature-icon {
+            font-size: 1.5em;
+            margin-bottom: 8px;
+            display: block;
         }
 
         .status {
-            margin-top: 20px;
-            padding: 10px;
-            border-radius: 10px;
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 12px;
             background: rgba(255, 255, 255, 0.1);
             display: none;
+            font-weight: 500;
         }
 
         .status.error {
-            background: rgba(255, 107, 107, 0.2);
+            background: rgba(255, 107, 107, 0.25);
+            border: 1px solid rgba(255, 107, 107, 0.3);
         }
 
         .status.success {
-            background: rgba(76, 217, 100, 0.2);
+            background: rgba(76, 217, 100, 0.25);
+            border: 1px solid rgba(76, 217, 100, 0.3);
         }
 
         .loading {
             display: none;
-            margin-top: 10px;
+            margin-top: 16px;
         }
 
         .spinner {
             border: 3px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
             border-top: 3px solid #4ecdc4;
-            width: 30px;
-            height: 30px;
+            width: 36px;
+            height: 36px;
             animation: spin 1s linear infinite;
-            margin: 0 auto;
+            margin: 0 auto 12px;
         }
 
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 32px 24px;
+                margin: 20px;
+            }
+            
+            h1 {
+                font-size: 2.2em;
+            }
+            
+            .feature-list {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🎥 視頻電視牆</h1>
-        <p class="subtitle">創建或加入視頻分享房間</p>
+        <span class="icon">🎬</span>
+        <h1>Video Wall</h1>
+        <p class="subtitle">Create your own video sharing room and watch together</p>
 
-        <div class="action-section">
-            <h3 class="action-title">創建新房間</h3>
-            <div class="input-group">
-                <input type="text" id="roomName" placeholder="房間名稱（可選）">
-                <button class="btn" onclick="createRoom()">創建房間</button>
-            </div>
+        <div class="input-group">
+            <label class="input-label">Room Name</label>
+            <input type="text" id="roomName" placeholder="Enter a name for your room (optional)">
+            <button class="btn" onclick="createRoom()">Create Room</button>
         </div>
 
-        <div class="divider">
-            <span>或</span>
-        </div>
-
-        <div class="action-section">
-            <h3 class="action-title">加入現有房間</h3>
-            <div class="input-group">
-                <input type="text" id="roomId" placeholder="房間 ID 或分享鏈接">
-                <button class="btn secondary" onclick="joinRoom()">加入房間</button>
+        <div class="features">
+            <div class="feature-list">
+                <div class="feature-item">
+                    <span class="feature-icon">📱</span>
+                    <div>Responsive Design</div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🔗</span>
+                    <div>Easy Sharing</div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">⚡</span>
+                    <div>Real-time Sync</div>
+                </div>
+                <div class="feature-item">
+                    <span class="feature-icon">🎥</span>
+                    <div>Multi-format Support</div>
+                </div>
             </div>
         </div>
 
         <div class="loading">
             <div class="spinner"></div>
-            <p>處理中...</p>
+            <p>Creating your room...</p>
         </div>
 
         <div id="status" class="status"></div>
@@ -198,14 +283,14 @@
         }
 
         function showStatus(message, type = 'info') {
-            const statusEl = document.getElementById('status');
-            statusEl.textContent = message;
-            statusEl.className = `status ${type}`;
-            statusEl.style.display = 'block';
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.style.display = 'block';
             
             if (type === 'success') {
                 setTimeout(() => {
-                    statusEl.style.display = 'none';
+                    statusDiv.style.display = 'none';
                 }, 3000);
             }
         }
@@ -214,6 +299,7 @@
             const roomName = document.getElementById('roomName').value.trim();
             
             showLoading(true);
+            showStatus('', 'info');
             
             try {
                 const response = await fetch(`${API_BASE_URL}/api/rooms`, {
@@ -221,71 +307,42 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ name: roomName }),
+                    body: JSON.stringify({
+                        roomName: roomName || undefined
+                    }),
                 });
                 
                 const data = await response.json();
                 
                 if (data.success) {
-                    showStatus('房間創建成功！正在跳轉...', 'success');
+                    showStatus('Room created successfully! Redirecting...', 'success');
                     setTimeout(() => {
                         window.location.href = `video-wall.html?room=${data.room.id}`;
-                    }, 1000);
+                    }, 1500);
                 } else {
-                    showStatus(data.error || '創建房間失敗', 'error');
+                    showStatus(data.error || 'Failed to create room', 'error');
                 }
             } catch (error) {
-                console.error('創建房間錯誤:', error);
-                showStatus('網絡錯誤，請檢查後端服務是否正常運行', 'error');
+                console.error('Create room error:', error);
+                showStatus('Failed to create room. Please check your connection.', 'error');
             } finally {
                 showLoading(false);
             }
         }
 
-        function joinRoom() {
-            const input = document.getElementById('roomId').value.trim();
-            
-            if (!input) {
-                showStatus('請輸入房間 ID 或分享鏈接', 'error');
-                return;
+        // Allow Enter key to create room
+        document.getElementById('roomName').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                createRoom();
             }
-            
-            // 提取房間 ID（支持完整 URL 和純 ID）
-            let roomId = input;
-            if (input.includes('room=')) {
-                const match = input.match(/room=([a-f0-9-]+)/);
-                if (match) {
-                    roomId = match[1];
-                }
-            }
-            
-            showLoading(true);
-            showStatus('正在加入房間...', 'info');
-            
-            // 直接跳轉到視頻牆頁面，讓該頁面驗證房間是否存在
-            setTimeout(() => {
-                window.location.href = `video-wall.html?room=${roomId}`;
-            }, 500);
+        });
+
+        // Check if there's a room parameter in URL for direct access
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomParam = urlParams.get('room');
+        if (roomParam) {
+            window.location.href = `video-wall.html?room=${roomParam}`;
         }
-
-        // 檢查 URL 參數，如果有房間 ID 則直接跳轉
-        window.addEventListener('load', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const roomId = urlParams.get('room');
-            
-            if (roomId) {
-                window.location.href = `video-wall.html?room=${roomId}`;
-            }
-        });
-
-        // 回車鍵支持
-        document.getElementById('roomName').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') createRoom();
-        });
-
-        document.getElementById('roomId').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') joinRoom();
-        });
     </script>
 </body>
 </html> 
