@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Video Wall Application",
   "scripts": {
-    "start": "cd server && npm install && npm start",
-    "build": "cd server && npm install",
+    "start": "cd server && npm install --production && node index.js",
+    "build": "cd server && npm install --production",
     "dev": "cd server && npm run dev"
   },
   "engines": {

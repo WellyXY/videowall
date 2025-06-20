@@ -9,10 +9,7 @@ const app = express();
 const port = process.env.PORT || 3080;
 
 // 中間件
-app.use(cors({
-  origin: ['https://videowall-production.up.railway.app', 'http://localhost:3000', 'https://*.vercel.app', '*'],
-  credentials: true
-}));
+app.use(cors());
 app.use(express.json());
 
 // 請求日誌中間件
@@ -288,9 +285,24 @@ app.use((error, req, res, next) => {
 
 // 啟動服務器
 app.listen(port, async () => {
-  console.log(`🚀 服務器運行在端口 ${port}`);
-  await initStorage();
-  console.log('✅ 視頻電視牆 API 已啟動');
+  try {
+    console.log(`🚀 服務器正在啟動...`);
+    console.log(`📡 監聽端口: ${port}`);
+    console.log(`🌍 環境: ${process.env.NODE_ENV || 'development'}`);
+    
+    await initStorage();
+    
+    console.log('✅ 視頻電視牆 API 已成功啟動');
+    console.log(`🔗 健康檢查: http://localhost:${port}/health`);
+  } catch (error) {
+    console.error('❌ 服務器啟動失敗:', error);
+    process.exit(1);
+  }
+}).on('error', (error) => {
+  console.error('❌ 服務器錯誤:', error);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`端口 ${port} 已被占用`);
+  }
 });
 
 module.exports = app; 
