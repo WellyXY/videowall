@@ -6,7 +6,7 @@ const fs = require('fs-extra');
 const path = require('path');
 
 const app = express();
-const port = process.env.PORT || 3080;
+const port = process.env.PORT || 8080;
 
 // 中間件
 app.use(cors());
@@ -284,16 +284,19 @@ app.use((error, req, res, next) => {
 });
 
 // 啟動服務器
-app.listen(port, async () => {
+app.listen(port, '0.0.0.0', async () => {
   try {
     console.log(`🚀 服務器正在啟動...`);
     console.log(`📡 監聽端口: ${port}`);
+    console.log(`📡 Railway PORT 環境變數: ${process.env.PORT}`);
     console.log(`🌍 環境: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌐 綁定地址: 0.0.0.0:${port}`);
     
     await initStorage();
     
     console.log('✅ 視頻電視牆 API 已成功啟動');
     console.log(`🔗 健康檢查: http://localhost:${port}/health`);
+    console.log(`🔗 外部訪問: https://videowall-production.up.railway.app/health`);
   } catch (error) {
     console.error('❌ 服務器啟動失敗:', error);
     process.exit(1);
