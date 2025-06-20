@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>視頻電視牆</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #000;
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: linear-gradient(90deg, #1a1a1a, #333);
+            padding: 20px;
+            text-align: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.5);
+        }
+
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .upload-section {
+            margin-top: 100px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 3px dashed #4ecdc4;
+            border-radius: 15px;
+            padding: 40px;
+            margin: 20px auto;
+            max-width: 600px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: rgba(255,255,255,0.05);
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #ff6b6b;
+            background: rgba(255,107,107,0.1);
+            transform: scale(1.02);
+        }
+
+        .upload-text {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(255,107,107,0.3);
+        }
+
+        .controls {
+            text-align: center;
+            margin: 20px;
+            padding: 20px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .control-group {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 1em;
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102,126,234,0.4);
+        }
+
+        .control-btn.active {
+            background: linear-gradient(45deg, #ff6b6b, #feca57);
+            box-shadow: 0 4px 15px rgba(255,107,107,0.4);
+            color: #fff;
+        }
+
+        .grid-size-selector {
+            margin: 10px;
+        }
+
+        .grid-size-selector select {
+            background: #333;
+            color: white;
+            border: 1px solid #555;
+            padding: 8px 15px;
+            border-radius: 10px;
+            font-size: 1em;
+        }
+
+        .grid-size-selector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .grid-size-selector label {
+            font-weight: bold;
+        }
+
+        .video-wall {
+            padding: 10px;
+            gap: 5px;
+            display: flex;
+            flex-wrap: wrap;
+            width: 100%;
+            align-content: flex-start;
+            align-items: flex-start;
+        }
+
+        .video-item {
+            position: relative;
+            background: #222;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            transition: transform 0.3s ease;
+            
+            flex-grow: 0;
+            flex-shrink: 0;
+            flex-basis: calc((100% - (var(--videos-per-row, 4) - 1) * 5px) / var(--videos-per-row, 4));
+            min-width: 280px;
+            height: auto;
+            min-height: 200px;
+            
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        .video-item:hover {
+            transform: scale(1.02);
+            z-index: 10;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.5);
+        }
+
+        .video-item video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 8px;
+            background-color: #000;
+        }
+
+        .overlay, .video-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.8));
+            padding: 15px;
+            color: white;
+            font-size: 0.9em;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+        }
+
+        .video-item:hover .overlay,
+        .video-item:hover .video-overlay {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .video-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .video-info {
+            font-size: 0.8em;
+            opacity: 0.8;
+        }
+
+        .status {
+            text-align: center;
+            padding: 20px;
+            font-size: 1.2em;
+            background: rgba(255,255,255,0.05);
+            margin: 20px;
+            border-radius: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .video-item {
+                min-width: 250px;
+                max-width: 400px;
+                max-height: 250px;
+                margin: 0 3px;
+            }
+            .video-wall {
+                padding: 10px 5px;
+            }
+            .control-group {
+                flex-direction: column;
+                align-items: center;
+            }
+            .video-row {
+                gap: 8px;
+                margin-bottom: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .video-item {
+                min-width: 200px;
+                max-width: 350px;
+                max-height: 200px;
+                margin: 0 2px;
+            }
+            .video-row {
+                gap: 5px;
+            }
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255,0,0,0.8);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 16px;
+            z-index: 10;
+            transition: background 0.2s ease;
+        }
+
+        .remove-btn:hover {
+            background: rgba(255,0,0,1);
+        }
+
+        .video-item.selected {
+            border: 3px solid #4ecdc4;
+            box-shadow: 0 0 20px rgba(78, 205, 196, 0.6);
+        }
+
+        .video-item.selected::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(78, 205, 196, 0.2);
+            z-index: 5;
+            border-radius: 15px;
+        }
+
+        .video-item.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 40px;
+            height: 40px;
+            background: #4ecdc4;
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .video-item {
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .video-item:hover {
+            transform: scale(1.02);
+            box-shadow: 0 12px 35px rgba(0,0,0,0.5);
+        }
+
+        .video-item.selected:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 25px rgba(78, 205, 196, 0.8);
+        }
+
+        .selection-stats {
+            margin: 20px;
+            padding: 20px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            text-align: center;
+        }
+
+        .selection-stats h3 {
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            color: #4ecdc4;
+        }
+
+        .selection-stats ul {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .selection-stats li {
+            background: #333;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 1.1em;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎥 視頻電視牆</h1>
+        <p id="roomInfo">上傳多個視頻，同時播放所有內容</p>
+    </div>
+
+    <div class="upload-section" id="uploadSection">
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-text">🎬 拖曳或點擊此處上傳視頻</div>
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">選擇視頻文件</button>
+            <input type="file" id="fileInput" class="file-input" multiple accept="video/*">
+        </div>
+    </div>
+
+    <div class="controls" id="controls" style="display: none;">
+        <div class="control-group">
+            <button class="control-btn" onclick="playAllVideos()">▶️ 播放全部</button>
+            <button class="control-btn" onclick="pauseAllVideos()">⏸️ 暫停全部</button>
+            <button class="control-btn" onclick="muteAllVideos()">🔇 全部靜音</button>
+            <button class="control-btn" onclick="unmuteAllVideos()">🔊 取消靜音</button>
+            <button class="control-btn" onclick="selectAll()">✅ 全選</button>
+            <button class="control-btn" onclick="deselectAll()">❌ 取消全選</button>
+            <button class="control-btn" onclick="showSelectedVideos()">📋 顯示已選</button>
+            <button class="control-btn" onclick="clearAllVideos()">🗑️ 清空全部</button>
+            <button class="control-btn" onclick="generateShareLink()" id="shareBtn">🔗 生成分享鏈接</button>
+        </div>
+
+        <div class="control-group">
+            <span id="selectionCount">已選擇: 0 個視頻</span>
+        </div>
+
+        <div class="control-group">
+            <label for="videosPerRowSlider">每行最多視頻數:</label>
+            <input type="range" id="videosPerRowSlider" min="1" max="10" value="4" style="flex-grow: 1; max-width: 200px;">
+            <span id="videosPerRowValue">4</span>
+        </div>
+
+        <div class="control-group">
+            <label>容器比例:</label>
+            <button id="auto-ratio-btn" class="control-btn active" onclick="setAspectRatio('auto')">自動適應</button>
+            <button id="ratio-16-9-btn" class="control-btn" onclick="setAspectRatio('16:9')">16:9</button>
+            <button id="ratio-4-3-btn" class="control-btn" onclick="setAspectRatio('4:3')">4:3</button>
+        </div>
+
+        <div class="control-group">
+            <label for="sortMethodSelect">排序方式:</label>
+            <select id="sortMethodSelect" class="control-btn" onchange="sortBy(this.value)" style="padding-right: 30px;">
+                <option value="uploadOrder">上傳順序</option>
+                <option value="fileName">文件名 (A-Z)</option>
+                <option value="fileNameDesc">文件名 (Z-A)</option>
+                <option value="addTime">添加時間 (舊-新)</option>
+                <option value="addTimeDesc">添加時間 (新-舊)</option>
+            </select>
+            <span id="currentSort" style="margin-left: -25px; pointer-events: none;"></span>
+        </div>
+
+        <div class="control-group">
+            <label>播放速度:</label>
+            <button class="control-btn" onclick="changeAllSpeed(0.5)">0.5x</button>
+            <button class="control-btn" onclick="changeAllSpeed(1)">1x</button>
+            <button class="control-btn" onclick="changeAllSpeed(1.5)">1.5x</button>
+            <button class="control-btn" onclick="changeAllSpeed(2)">2x</button>
+        </div>
+    </div>
+
+    <div class="status" id="status">拖曳或點擊此處上傳視頻</div>
+
+    <div class="video-wall" id="videoWall"></div>
+
+    <div id="selectionStats" class="selection-stats" style="display: none;">
+        <!-- Stats will be rendered here -->
+    </div>
+
+    <!-- 分享鏈接模態框 -->
+    <div id="shareModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: #222; padding: 30px; border-radius: 15px; max-width: 500px; width: 90%; text-align: center;">
+            <h3 style="color: #4ecdc4; margin-bottom: 20px;">🔗 分享鏈接</h3>
+            <p style="margin-bottom: 15px; color: #ccc;">複製以下鏈接分享給其他人：</p>
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <input type="text" id="shareUrl" readonly style="flex: 1; padding: 10px; border: 1px solid #555; border-radius: 5px; background: #333; color: white;">
+                <button onclick="copyShareLink()" style="padding: 10px 20px; background: #4ecdc4; color: white; border: none; border-radius: 5px; cursor: pointer;">複製</button>
+            </div>
+            <button onclick="closeShareModal()" style="padding: 10px 20px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer;">關閉</button>
+        </div>
+    </div>
+
+    <script>
+        // 配置
+        const API_BASE_URL = 'https://your-railway-app.railway.app'; // 請替換為您的 Railway 部署 URL
+        
+        // 全局變量
+        let currentRoomId = null;
+        let isCloudMode = false;
+        
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const videoWall = document.getElementById('videoWall');
+        const statusDiv = document.getElementById('status');
+        const controlsDiv = document.getElementById('controls');
+        const videosPerRowSlider = document.getElementById('videosPerRowSlider');
+        const videosPerRowValue = document.getElementById('videosPerRowValue');
+        
+        let videoData = []; // Stores all video metadata
+        let videoElements = []; // Stores the actual <video> DOM elements for playback control
+        let videoCounter = 1; // Global counter to ensure unique uploadOrder
+        let currentSortMethod = 'uploadOrder';
+        let selectedVideos = new Set(); // Stores uploadOrder of selected videos
+
+        // 初始化
+        window.addEventListener('load', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            currentRoomId = urlParams.get('room');
+            
+            if (currentRoomId) {
+                isCloudMode = true;
+                await loadRoomData();
+            }
+            
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            fileInput.addEventListener('change', handleFiles);
+            uploadArea.addEventListener('dragover', (e) => e.preventDefault());
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length > 0) {
+                    handleFiles({ target: { files: e.dataTransfer.files } });
+                }
+            });
+
+            videosPerRowSlider.addEventListener('input', (e) => {
+                const value = e.target.value;
+                videosPerRowValue.textContent = value;
+                videoWall.style.setProperty('--videos-per-row', value);
+                updateSelectionStats();
+            });
+        }
+
+        // 加載房間數據
+        async function loadRoomData() {
+            try {
+                updateStatus('正在加載房間數據...', 'info');
+                
+                const response = await fetch(`${API_BASE_URL}/api/rooms/${currentRoomId}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('roomInfo').textContent = `房間: ${data.room.name}`;
+                    
+                    // 加載雲端視頻
+                    if (data.videos && data.videos.length > 0) {
+                        await loadCloudVideos(data.videos);
+                        controlsDiv.style.display = 'block';
+                        uploadArea.style.display = 'none';
+                    }
+                    
+                    updateStatus(`房間加載完成，共 ${data.videos.length} 個視頻`);
+                } else {
+                    updateStatus('房間不存在或已被刪除', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 3000);
+                }
+            } catch (error) {
+                console.error('加載房間數據錯誤:', error);
+                updateStatus('加載房間數據失敗，請檢查網絡連接', 'error');
+            }
+        }
+
+        // 加載雲端視頻
+        async function loadCloudVideos(videos) {
+            videoData = videos.map(video => ({
+                id: video.id,
+                name: video.original_name,
+                cloudinaryUrl: video.cloudinary_url,
+                size: video.file_size,
+                width: video.width,
+                height: video.height,
+                uploadOrder: video.upload_order,
+                timestamp: new Date(video.created_at).getTime(),
+                isCloud: true
+            }));
+            
+            videoCounter = Math.max(...videoData.map(v => v.uploadOrder)) + 1;
+            renderVideoWall();
+        }
+
+        // 處理文件上傳
+        async function handleFiles(event) {
+            const files = Array.from(event.target.files).filter(file => file.type.startsWith('video/'));
+            if (files.length === 0) return;
+
+            if (isCloudMode && currentRoomId) {
+                await uploadToCloud(files);
+            } else {
+                handleLocalFiles(files);
+            }
+        }
+
+        // 上傳到雲端
+        async function uploadToCloud(files) {
+            updateStatus('正在上傳視頻到雲端...', 'info');
+            
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append('videos', file);
+            });
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/rooms/${currentRoomId}/videos`, {
+                    method: 'POST',
+                    body: formData,
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateStatus(`成功上傳 ${data.videos.length} 個視頻`);
+                    await loadRoomData(); // 重新加載房間數據
+                } else {
+                    updateStatus(data.error || '上傳失敗', 'error');
+                }
+            } catch (error) {
+                console.error('上傳錯誤:', error);
+                updateStatus('上傳失敗，請檢查網絡連接', 'error');
+            }
+        }
+
+        // 處理本地文件
+        function handleLocalFiles(files) {
+            const newVideos = files.map((file, index) => ({
+                file: file,
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                uploadOrder: videoCounter + index,
+                timestamp: Date.now() + index,
+                isCloud: false
+            }));
+            
+            videoCounter += files.length;
+            videoData.push(...newVideos);
+
+            if (videoData.length > 0) {
+                controlsDiv.style.display = 'block';
+                uploadArea.style.display = 'none';
+            }
+
+            updateStatus(`已添加 ${files.length} 個視頻，總共 ${videoData.length} 個視頻。`);
+            renderVideoWall();
+        }
+
+        // 創建視頻項目
+        function createVideoItem(videoInfo) {
+            const videoItem = document.createElement('div');
+            videoItem.className = 'video-item';
+            videoItem.dataset.uploadOrder = videoInfo.uploadOrder;
+
+            const video = document.createElement('video');
+            video.src = videoInfo.isCloud ? videoInfo.cloudinaryUrl : URL.createObjectURL(videoInfo.file);
+            video.muted = true;
+            video.loop = true;
+            video.playsInline = true;
+            video.preload = 'metadata';
+            video.setAttribute('title', videoInfo.name);
+            videoItem.appendChild(video);
+            videoElements.push(video);
+
+            const overlay = document.createElement('div');
+            overlay.className = 'overlay';
+
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-btn';
+            removeBtn.innerHTML = '×';
+            removeBtn.title = '移除此視頻';
+            removeBtn.onclick = (e) => {
+                e.stopPropagation();
+                if (videoInfo.isCloud) {
+                    removeCloudVideo(videoInfo.id);
+                } else {
+                    removeVideoByUploadOrder(videoInfo.uploadOrder);
+                }
+            };
+
+            overlay.innerHTML = `
+                <div class="video-name">${videoInfo.name}</div>
+                <div class="video-order">#${videoInfo.uploadOrder}</div>
+            `;
+            overlay.appendChild(removeBtn);
+            videoItem.appendChild(overlay);
+
+            videoItem.addEventListener('click', () => {
+                toggleVideoSelection(videoInfo.uploadOrder);
+            });
+
+            video.addEventListener('loadedmetadata', () => {
+                setVideoItemAspectRatio(videoItem, video);
+                video.play().catch(e => console.log('Auto-play was prevented for:', videoInfo.name, e));
+            });
+            
+            return videoItem;
+        }
+
+        // 刪除雲端視頻
+        async function removeCloudVideo(videoId) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/videos/${videoId}`, {
+                    method: 'DELETE',
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateStatus('視頻刪除成功');
+                    await loadRoomData(); // 重新加載房間數據
+                } else {
+                    updateStatus(data.error || '刪除失敗', 'error');
+                }
+            } catch (error) {
+                console.error('刪除視頻錯誤:', error);
+                updateStatus('刪除失敗，請檢查網絡連接', 'error');
+            }
+        }
+
+        // 生成分享鏈接
+        function generateShareLink() {
+            if (!isCloudMode || !currentRoomId) {
+                updateStatus('只有雲端房間才能生成分享鏈接', 'error');
+                return;
+            }
+            
+            const shareUrl = `${window.location.origin}/video-wall.html?room=${currentRoomId}`;
+            document.getElementById('shareUrl').value = shareUrl;
+            document.getElementById('shareModal').style.display = 'flex';
+        }
+
+        function copyShareLink() {
+            const shareUrl = document.getElementById('shareUrl');
+            shareUrl.select();
+            shareUrl.setSelectionRange(0, 99999);
+            
+            try {
+                document.execCommand('copy');
+                updateStatus('分享鏈接已複製到剪貼板', 'success');
+            } catch (err) {
+                console.error('複製失敗:', err);
+                updateStatus('複製失敗，請手動複製', 'error');
+            }
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').style.display = 'none';
+        }
+
+        function renderVideoWall() {
+            // Clear previous state
+            videoWall.innerHTML = '';
+            videoElements.forEach(video => {
+                if (video.src.startsWith('blob:')) {
+                    URL.revokeObjectURL(video.src);
+                }
+            });
+            videoElements = [];
+
+            const sortedData = getSortedData();
+
+            sortedData.forEach(videoInfo => {
+                const videoItem = createVideoItem(videoInfo);
+                videoWall.appendChild(videoItem);
+            });
+
+            updateSelectionUI();
+        }
+
+        function setVideoItemAspectRatio(videoItem, video) {
+            const currentRatioMode = getCurrentRatioMode();
+            
+            if (currentRatioMode === 'auto') {
+                const containerWidth = videoItem.offsetWidth;
+                const videoAspectRatio = video.videoWidth / video.videoHeight;
+                const calculatedHeight = containerWidth / videoAspectRatio;
+                
+                const minHeight = 200;
+                const maxHeight = containerWidth * 2;
+                const finalHeight = Math.max(minHeight, Math.min(maxHeight, calculatedHeight));
+                
+                videoItem.style.height = finalHeight + 'px';
+                videoItem.style.paddingTop = '0';
+            } else if (currentRatioMode === '16:9') {
+                const containerWidth = videoItem.offsetWidth;
+                const height169 = containerWidth * (9/16);
+                videoItem.style.height = height169 + 'px';
+                videoItem.style.paddingTop = '0';
+            } else if (currentRatioMode === '4:3') {
+                const containerWidth = videoItem.offsetWidth;
+                const height43 = containerWidth * (3/4);
+                videoItem.style.height = height43 + 'px';
+                videoItem.style.paddingTop = '0';
+            }
+        }
+
+        function getCurrentRatioMode() {
+            if (document.getElementById('auto-ratio-btn').classList.contains('active')) {
+                return 'auto';
+            } else if (document.getElementById('ratio-16-9-btn').classList.contains('active')) {
+                return '16:9';
+            } else if (document.getElementById('ratio-4-3-btn').classList.contains('active')) {
+                return '4:3';
+            }
+            return 'auto';
+        }
+        
+        function removeVideoByUploadOrder(uploadOrder) {
+            const indexToRemove = videoData.findIndex(v => v.uploadOrder === uploadOrder);
+            if (indexToRemove === -1) return;
+
+            videoData.splice(indexToRemove, 1);
+            selectedVideos.delete(uploadOrder);
+            
+            renderVideoWall();
+
+            if (videoData.length === 0) {
+                controlsDiv.style.display = 'none';
+                uploadArea.style.display = 'flex';
+                statusDiv.textContent = '拖曳或點擊此處上傳視頻';
+            } else {
+                updateStatus(`已移除視頻，剩餘 ${videoData.length} 個。`);
+            }
+        }
+        
+        function toggleVideoSelection(uploadOrder) {
+            if (selectedVideos.has(uploadOrder)) {
+                selectedVideos.delete(uploadOrder);
+            } else {
+                selectedVideos.add(uploadOrder);
+            }
+            updateSelectionUI();
+        }
+
+        function updateSelectionUI() {
+            const videoItems = videoWall.querySelectorAll('.video-item');
+            videoItems.forEach(item => {
+                const uploadOrder = parseInt(item.dataset.uploadOrder, 10);
+                if (selectedVideos.has(uploadOrder)) {
+                    item.classList.add('selected');
+                } else {
+                    item.classList.remove('selected');
+                }
+            });
+            
+            document.getElementById('selectionCount').textContent = `已選擇: ${selectedVideos.size} 個視頻`;
+
+            const statsContainer = document.getElementById('selectionStats');
+            if (videoData.length > 0) {
+                statsContainer.style.display = 'block';
+                updateSelectionStats();
+            } else {
+                statsContainer.style.display = 'none';
+            }
+        }
+
+        function updateSelectionStats() {
+            const statsContainer = document.getElementById('selectionStats');
+            const positionCounts = {};
+            const videosPerRow = parseInt(videosPerRowSlider.value, 10);
+
+            const videoItems = videoWall.querySelectorAll('.video-item');
+            videoItems.forEach((item, index) => {
+                const uploadOrder = parseInt(item.dataset.uploadOrder, 10);
+                if (selectedVideos.has(uploadOrder)) {
+                    const position = (index % videosPerRow) + 1;
+                    positionCounts[position] = (positionCounts[position] || 0) + 1;
+                }
+            });
+
+            if (Object.keys(positionCounts).length > 0) {
+                let statsHTML = '<h3>📊 選中位置統計</h3><ul>';
+                const sortedPositions = Object.keys(positionCounts).sort((a, b) => a - b);
+                sortedPositions.forEach(pos => {
+                    statsHTML += `<li>第 ${pos} 位: ${positionCounts[pos]} 票</li>`;
+                });
+                statsHTML += '</ul>';
+                statsContainer.innerHTML = statsHTML;
+            } else {
+                statsContainer.innerHTML = '<h3>📊 選中位置統計</h3><p>尚未選擇任何視頻</p>';
+            }
+        }
+
+        function selectAll() {
+            videoData.forEach(v => selectedVideos.add(v.uploadOrder));
+            updateSelectionUI();
+        }
+
+        function deselectAll() {
+            selectedVideos.clear();
+            updateSelectionUI();
+        }
+
+        function clearAllVideos() {
+            if (confirm('確定要清空所有視頻嗎？此操作無法復原。')) {
+                videoData = [];
+                videoCounter = 1;
+                selectedVideos.clear();
+                renderVideoWall();
+                
+                controlsDiv.style.display = 'none';
+                uploadArea.style.display = 'flex';
+                updateStatus('拖曳或點擊此處上傳視頻');
+            }
+        }
+        
+        function playAllVideos() { videoElements.forEach(v => v.play()); }
+        function pauseAllVideos() { videoElements.forEach(v => v.pause()); }
+        function muteAllVideos() { videoElements.forEach(v => v.muted = true); }
+        function unmuteAllVideos() { videoElements.forEach(v => v.muted = false); }
+        function changeAllSpeed(speed) { videoElements.forEach(v => v.playbackRate = speed); }
+        
+        function sortBy(method) {
+            currentSortMethod = method;
+            const sortNames = {
+                uploadOrder: '上傳順序',
+                fileName: '文件名 (A-Z)',
+                fileNameDesc: '文件名 (Z-A)',
+                addTime: '添加時間 (舊-新)',
+                addTimeDesc: '添加時間 (新-舊)'
+            };
+            document.getElementById('currentSort').textContent = `排序: ${sortNames[method]}`;
+            renderVideoWall();
+            updateStatus(`已按 ${sortNames[method]} 重新排序 ${videoData.length} 個視頻`);
+        }
+
+        function getSortedData() {
+            const dataCopy = [...videoData];
+            switch (currentSortMethod) {
+                case 'fileName':
+                    return dataCopy.sort((a, b) => a.name.localeCompare(b.name, 'zh-TW', { numeric: true }));
+                case 'fileNameDesc':
+                    return dataCopy.sort((a, b) => b.name.localeCompare(a.name, 'zh-TW', { numeric: true }));
+                case 'addTime':
+                    return dataCopy.sort((a, b) => a.timestamp - b.timestamp);
+                case 'addTimeDesc':
+                    return dataCopy.sort((a, b) => b.timestamp - a.timestamp);
+                case 'uploadOrder':
+                default:
+                    return dataCopy.sort((a, b) => a.uploadOrder - b.uploadOrder);
+            }
+        }
+
+        function showSelectedVideos() {
+            const selectedList = Array.from(selectedVideos)
+                .map(order => videoData.find(v => v.uploadOrder === order))
+                .filter(Boolean)
+                .sort((a, b) => a.uploadOrder - b.uploadOrder);
+            
+            console.log('選中的視頻:', selectedList.map(v => v.name));
+            alert('選中的視頻列表已打印到控制台 (按 F12 查看)');
+        }
+
+        function setAspectRatio(ratio) {
+            const wall = document.getElementById('videoWall');
+            const btnAuto = document.getElementById('auto-ratio-btn');
+            const btn169 = document.getElementById('ratio-16-9-btn');
+            const btn43 = document.getElementById('ratio-4-3-btn');
+
+            [btnAuto, btn169, btn43].forEach(btn => btn.classList.remove('active'));
+
+            if (ratio === 'auto') {
+                btnAuto.classList.add('active');
+                wall.classList.remove('ratio-4-3');
+                const videoItems = wall.querySelectorAll('.video-item');
+                videoItems.forEach(item => {
+                    const video = item.querySelector('video');
+                    if (video && video.videoWidth && video.videoHeight) {
+                        setVideoItemAspectRatio(item, video);
+                    }
+                });
+            } else if (ratio === '4:3') {
+                btn43.classList.add('active');
+                wall.classList.add('ratio-4-3');
+                const videoItems = wall.querySelectorAll('.video-item');
+                videoItems.forEach(item => {
+                    const containerWidth = item.offsetWidth;
+                    const height43 = containerWidth * (3/4);
+                    item.style.height = height43 + 'px';
+                    item.style.paddingTop = '0';
+                });
+            } else {
+                btn169.classList.add('active');
+                wall.classList.remove('ratio-4-3');
+                const videoItems = wall.querySelectorAll('.video-item');
+                videoItems.forEach(item => {
+                    const containerWidth = item.offsetWidth;
+                    const height169 = containerWidth * (9/16);
+                    item.style.height = height169 + 'px';
+                    item.style.paddingTop = '0';
+                });
+            }
+        }
+
+        function updateStatus(message, type = 'info') {
+            statusDiv.textContent = message;
+            statusDiv.style.background = type === 'error' ? 'rgba(255,0,0,0.1)' : 'rgba(255,255,255,0.05)';
+        }
+    </script>
+</body>
+</html> 

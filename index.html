@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>視頻電視牆 - 首頁</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.8;
+            margin-bottom: 40px;
+        }
+
+        .action-section {
+            margin-bottom: 30px;
+        }
+
+        .action-title {
+            font-size: 1.3em;
+            margin-bottom: 15px;
+            color: #4ecdc4;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 1em;
+            margin-bottom: 15px;
+        }
+
+        input[type="text"]::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+        }
+
+        .divider {
+            margin: 30px 0;
+            position: relative;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .divider span {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 0 20px;
+            position: relative;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            display: none;
+        }
+
+        .status.error {
+            background: rgba(255, 107, 107, 0.2);
+        }
+
+        .status.success {
+            background: rgba(76, 217, 100, 0.2);
+        }
+
+        .loading {
+            display: none;
+            margin-top: 10px;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 3px solid #4ecdc4;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 視頻電視牆</h1>
+        <p class="subtitle">創建或加入視頻分享房間</p>
+
+        <div class="action-section">
+            <h3 class="action-title">創建新房間</h3>
+            <div class="input-group">
+                <input type="text" id="roomName" placeholder="房間名稱（可選）">
+                <button class="btn" onclick="createRoom()">創建房間</button>
+            </div>
+        </div>
+
+        <div class="divider">
+            <span>或</span>
+        </div>
+
+        <div class="action-section">
+            <h3 class="action-title">加入現有房間</h3>
+            <div class="input-group">
+                <input type="text" id="roomId" placeholder="房間 ID 或分享鏈接">
+                <button class="btn secondary" onclick="joinRoom()">加入房間</button>
+            </div>
+        </div>
+
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>處理中...</p>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'https://your-railway-app.railway.app'; // 請替換為您的 Railway 部署 URL
+
+        function showLoading(show) {
+            document.querySelector('.loading').style.display = show ? 'block' : 'none';
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+            statusEl.style.display = 'block';
+            
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 3000);
+            }
+        }
+
+        async function createRoom() {
+            const roomName = document.getElementById('roomName').value.trim();
+            
+            showLoading(true);
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/rooms`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ name: roomName }),
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showStatus('房間創建成功！正在跳轉...', 'success');
+                    setTimeout(() => {
+                        window.location.href = `video-wall.html?room=${data.room.id}`;
+                    }, 1000);
+                } else {
+                    showStatus(data.error || '創建房間失敗', 'error');
+                }
+            } catch (error) {
+                console.error('創建房間錯誤:', error);
+                showStatus('網絡錯誤，請檢查後端服務是否正常運行', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function joinRoom() {
+            const input = document.getElementById('roomId').value.trim();
+            
+            if (!input) {
+                showStatus('請輸入房間 ID 或分享鏈接', 'error');
+                return;
+            }
+            
+            // 提取房間 ID（支持完整 URL 和純 ID）
+            let roomId = input;
+            if (input.includes('room=')) {
+                const match = input.match(/room=([a-f0-9-]+)/);
+                if (match) {
+                    roomId = match[1];
+                }
+            }
+            
+            showLoading(true);
+            showStatus('正在加入房間...', 'info');
+            
+            // 直接跳轉到視頻牆頁面，讓該頁面驗證房間是否存在
+            setTimeout(() => {
+                window.location.href = `video-wall.html?room=${roomId}`;
+            }, 500);
+        }
+
+        // 檢查 URL 參數，如果有房間 ID 則直接跳轉
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = urlParams.get('room');
+            
+            if (roomId) {
+                window.location.href = `video-wall.html?room=${roomId}`;
+            }
+        });
+
+        // 回車鍵支持
+        document.getElementById('roomName').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') createRoom();
+        });
+
+        document.getElementById('roomId').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') joinRoom();
+        });
+    </script>
+</body>
+</html> 
