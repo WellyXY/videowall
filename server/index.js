@@ -26,24 +26,45 @@ const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json');
 // 初始化存儲目錄
 async function initStorage() {
   try {
-    await fs.ensureDir(DATA_DIR);
-    await fs.ensureDir(VIDEOS_DIR);
+    // 使用 /tmp 目錄，Railway 允許寫入
+    const tmpDir = '/tmp/videowall';
+    const tmpVideosDir = '/tmp/videowall/videos';
+    const tmpRoomsFile = '/tmp/videowall/rooms.json';
+    
+    await fs.ensureDir(tmpDir);
+    await fs.ensureDir(tmpVideosDir);
+    
+    // 更新全局變數
+    global.DATA_DIR = tmpDir;
+    global.VIDEOS_DIR = tmpVideosDir;
+    global.ROOMS_FILE = tmpRoomsFile;
     
     // 確保 rooms.json 文件存在
-    if (!await fs.pathExists(ROOMS_FILE)) {
-      await fs.writeJson(ROOMS_FILE, {});
+    if (!await fs.pathExists(tmpRoomsFile)) {
+      await fs.writeJson(tmpRoomsFile, {});
     }
     
-    console.log('存儲目錄初始化完成');
+    console.log('存儲目錄初始化完成:', tmpDir);
   } catch (error) {
     console.error('存儲目錄初始化錯誤:', error);
+    // 如果 /tmp 也不行，使用內存存儲
+    global.DATA_DIR = null;
+    global.VIDEOS_DIR = null;
+    global.ROOMS_FILE = null;
+    global.ROOMS_DATA = {};
+    console.log('使用內存存儲模式');
   }
 }
 
 // 讀取房間數據
 async function readRooms() {
   try {
-    return await fs.readJson(ROOMS_FILE);
+    if (global.ROOMS_FILE) {
+      return await fs.readJson(global.ROOMS_FILE);
+    } else {
+      // 內存模式
+      return global.ROOMS_DATA || {};
+    }
   } catch (error) {
     return {};
   }
@@ -51,16 +72,31 @@ async function readRooms() {
 
 // 寫入房間數據
 async function writeRooms(rooms) {
-  await fs.writeJson(ROOMS_FILE, rooms);
+  try {
+    if (global.ROOMS_FILE) {
+      await fs.writeJson(global.ROOMS_FILE, rooms);
+    } else {
+      // 內存模式
+      global.ROOMS_DATA = rooms;
+    }
+  } catch (error) {
+    console.error('寫入房間數據失敗:', error);
+  }
 }
 
 // 配置 multer 用於文件上傳
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     const roomId = req.params.roomId;
-    const roomDir = path.join(VIDEOS_DIR, roomId);
-    fs.ensureDirSync(roomDir);
-    cb(null, roomDir);
+    const videosDir = global.VIDEOS_DIR || '/tmp/videowall/videos';
+    const roomDir = path.join(videosDir, roomId);
+    try {
+      fs.ensureDirSync(roomDir);
+      cb(null, roomDir);
+    } catch (error) {
+      console.error('創建目錄失敗:', error);
+      cb(error, null);
+    }
   },
   filename: function (req, file, cb) {
     const uniqueName = `${uuidv4()}-${file.originalname}`;
@@ -71,7 +107,7 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 100 * 1024 * 1024, // 100MB 限制
+    fileSize: 50 * 1024 * 1024, // 減少到 50MB 限制，避免內存問題
   },
   fileFilter: (req, file, cb) => {
     if (file.mimetype.startsWith('video/')) {
@@ -83,7 +119,10 @@ const upload = multer({
 });
 
 // 靜態文件服務 - 提供視頻文件訪問
-app.use('/videos', express.static(VIDEOS_DIR));
+app.use('/videos', (req, res, next) => {
+  const videosDir = global.VIDEOS_DIR || '/tmp/videowall/videos';
+  express.static(videosDir)(req, res, next);
+});
 
 // API 路由
 
@@ -223,7 +262,8 @@ app.delete('/api/videos/:videoId', async (req, res) => {
     }
     
     // 刪除文件
-    const filePath = path.join(VIDEOS_DIR, videoToDelete.room_id, videoToDelete.file_name);
+    const videosDir = global.VIDEOS_DIR || '/tmp/videowall/videos';
+    const filePath = path.join(videosDir, videoToDelete.room_id, videoToDelete.file_name);
     try {
       await fs.remove(filePath);
     } catch (fileError) {
@@ -281,6 +321,28 @@ app.use((error, req, res, next) => {
     success: false, 
     error: '服務器內部錯誤' 
   });
+});
+
+// 全局錯誤處理
+process.on('uncaughtException', (error) => {
+  console.error('❌ 未捕獲的異常:', error);
+  console.log('🔄 嘗試繼續運行...');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ 未處理的 Promise 拒絕:', reason);
+  console.log('🔄 嘗試繼續運行...');
+});
+
+// 優雅關閉處理
+process.on('SIGTERM', () => {
+  console.log('📡 收到 SIGTERM 信號，正在優雅關閉...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('📡 收到 SIGINT 信號，正在優雅關閉...');
+  process.exit(0);
 });
 
 // 啟動服務器

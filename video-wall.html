@@ -403,12 +403,12 @@
         <div class="control-group">
             <span id="selectionCount">已選擇: 0 個視頻</span>
         </div>
-
+        
         <div class="control-group">
             <label for="videosPerRowSlider">每行最多視頻數:</label>
             <input type="range" id="videosPerRowSlider" min="1" max="10" value="4" style="flex-grow: 1; max-width: 200px;">
             <span id="videosPerRowValue">4</span>
-        </div>
+            </div>
 
         <div class="control-group">
             <label>容器比例:</label>
@@ -425,7 +425,7 @@
                 <option value="fileNameDesc">文件名 (Z-A)</option>
                 <option value="addTime">添加時間 (舊-新)</option>
                 <option value="addTimeDesc">添加時間 (新-舊)</option>
-            </select>
+                </select>
             <span id="currentSort" style="margin-left: -25px; pointer-events: none;"></span>
         </div>
 
@@ -497,8 +497,8 @@
         function setupEventListeners() {
             fileInput.addEventListener('change', handleFiles);
             uploadArea.addEventListener('dragover', (e) => e.preventDefault());
-            uploadArea.addEventListener('drop', (e) => {
-                e.preventDefault();
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
                 if (e.dataTransfer.files.length > 0) {
                     handleFiles({ target: { files: e.dataTransfer.files } });
                 }
@@ -642,7 +642,7 @@
 
             const overlay = document.createElement('div');
             overlay.className = 'overlay';
-
+            
             const removeBtn = document.createElement('button');
             removeBtn.className = 'remove-btn';
             removeBtn.innerHTML = '×';
@@ -671,7 +671,7 @@
                 setVideoItemAspectRatio(videoItem, video);
                 video.play().catch(e => console.log('Auto-play was prevented for:', videoInfo.name, e));
             });
-            
+
             return videoItem;
         }
 
@@ -729,12 +729,12 @@
         function renderVideoWall() {
             // Clear previous state
             videoWall.innerHTML = '';
-            videoElements.forEach(video => {
+                videoElements.forEach(video => {
                 if (video.src.startsWith('blob:')) {
                     URL.revokeObjectURL(video.src);
                 }
-            });
-            videoElements = [];
+                });
+                videoElements = [];
 
             const sortedData = getSortedData();
 
@@ -816,7 +816,7 @@
             videoItems.forEach(item => {
                 const uploadOrder = parseInt(item.dataset.uploadOrder, 10);
                 if (selectedVideos.has(uploadOrder)) {
-                    item.classList.add('selected');
+                item.classList.add('selected');
                 } else {
                     item.classList.remove('selected');
                 }
