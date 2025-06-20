@@ -107,9 +107,10 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB 限制
-    files: 20, // 最多20個文件
+    fileSize: 50 * 1024 * 1024, // 50MB 每個文件
+    files: 50, // 增加到50個文件總數限制
     fieldSize: 1024 * 1024, // 1MB 字段大小限制
+    fields: 10, // 最多10個字段
   },
   fileFilter: (req, file, cb) => {
     console.log('檢查文件類型:', file.mimetype, file.originalname);
@@ -187,12 +188,22 @@ app.post('/api/rooms/:roomId/videos', (req, res) => {
   console.log('收到上傳請求，房間ID:', req.params.roomId);
   console.log('請求頭:', req.headers);
   
-  upload.array('videos', 20)(req, res, async (err) => {
+  upload.array('videos', 30)(req, res, async (err) => {
     if (err) {
       console.error('Multer 錯誤:', err);
+      
+      let errorMessage = 'File upload error';
+      if (err.code === 'LIMIT_FILE_COUNT') {
+        errorMessage = 'Too many files. Maximum 30 files allowed per upload.';
+      } else if (err.code === 'LIMIT_FILE_SIZE') {
+        errorMessage = 'File too large. Maximum 50MB per file.';
+      } else if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        errorMessage = 'Unexpected file field. Please use "videos" field name.';
+      }
+      
       return res.status(400).json({ 
         success: false, 
-        error: 'File upload error', 
+        error: errorMessage, 
         details: err.message,
         code: err.code 
       });
