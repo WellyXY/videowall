@@ -9,8 +9,17 @@ const app = express();
 const port = process.env.PORT || 3080;
 
 // 中間件
-app.use(cors());
+app.use(cors({
+  origin: ['https://videowall-production.up.railway.app', 'http://localhost:3000', 'https://*.vercel.app', '*'],
+  credentials: true
+}));
 app.use(express.json());
+
+// 請求日誌中間件
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`, req.body);
+  next();
+});
 
 // 確保數據目錄存在
 const DATA_DIR = path.join(__dirname, 'data');
@@ -83,10 +92,13 @@ app.use('/videos', express.static(VIDEOS_DIR));
 
 // 創建新房間
 app.post('/api/rooms', async (req, res) => {
+  console.log('收到創建房間請求:', req.body);
   try {
     const { name } = req.body;
     const roomId = uuidv4();
     const roomName = name || `房間_${new Date().toLocaleString('zh-TW')}`;
+    
+    console.log('正在創建房間:', { roomId, roomName });
     
     const rooms = await readRooms();
     rooms[roomId] = {
@@ -98,6 +110,7 @@ app.post('/api/rooms', async (req, res) => {
     };
     
     await writeRooms(rooms);
+    console.log('房間創建成功:', roomId);
     
     res.json({
       success: true,
@@ -105,7 +118,7 @@ app.post('/api/rooms', async (req, res) => {
     });
   } catch (error) {
     console.error('創建房間錯誤:', error);
-    res.status(500).json({ success: false, error: '創建房間失敗' });
+    res.status(500).json({ success: false, error: '創建房間失敗', details: error.message });
   }
 });
 
@@ -237,6 +250,15 @@ app.get('/health', (req, res) => {
     status: 'OK', 
     timestamp: new Date().toISOString(),
     message: '視頻電視牆 API 運行正常'
+  });
+});
+
+// 測試 CORS
+app.get('/test', (req, res) => {
+  res.json({
+    message: 'CORS 測試成功',
+    timestamp: new Date().toISOString(),
+    headers: req.headers
   });
 });
 
