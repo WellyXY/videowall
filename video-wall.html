@@ -548,10 +548,8 @@
             videoData = videos.map(video => ({
                 id: video.id,
                 name: video.original_name,
-                cloudinaryUrl: video.cloudinary_url,
+                videoUrl: `${API_BASE_URL}${video.file_path}`,
                 size: video.file_size,
-                width: video.width,
-                height: video.height,
                 uploadOrder: video.upload_order,
                 timestamp: new Date(video.created_at).getTime(),
                 isCloud: true
@@ -633,7 +631,7 @@
             videoItem.dataset.uploadOrder = videoInfo.uploadOrder;
 
             const video = document.createElement('video');
-            video.src = videoInfo.isCloud ? videoInfo.cloudinaryUrl : URL.createObjectURL(videoInfo.file);
+            video.src = videoInfo.isCloud ? videoInfo.videoUrl : URL.createObjectURL(videoInfo.file);
             video.muted = true;
             video.loop = true;
             video.playsInline = true;

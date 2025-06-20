@@ -1,10 +1,9 @@
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const { v2: cloudinary } = require('cloudinary');
-const { Pool } = require('pg');
 const { v4: uuidv4 } = require('uuid');
-require('dotenv').config();
+const fs = require('fs-extra');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -13,21 +12,56 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Cloudinary 配置
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+// 確保數據目錄存在
+const DATA_DIR = path.join(__dirname, 'data');
+const VIDEOS_DIR = path.join(DATA_DIR, 'videos');
+const ROOMS_FILE = path.join(DATA_DIR, 'rooms.json');
+
+// 初始化存儲目錄
+async function initStorage() {
+  try {
+    await fs.ensureDir(DATA_DIR);
+    await fs.ensureDir(VIDEOS_DIR);
+    
+    // 確保 rooms.json 文件存在
+    if (!await fs.pathExists(ROOMS_FILE)) {
+      await fs.writeJson(ROOMS_FILE, {});
+    }
+    
+    console.log('存儲目錄初始化完成');
+  } catch (error) {
+    console.error('存儲目錄初始化錯誤:', error);
+  }
+}
+
+// 讀取房間數據
+async function readRooms() {
+  try {
+    return await fs.readJson(ROOMS_FILE);
+  } catch (error) {
+    return {};
+  }
+}
+
+// 寫入房間數據
+async function writeRooms(rooms) {
+  await fs.writeJson(ROOMS_FILE, rooms);
+}
+
+// 配置 multer 用於文件上傳
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const roomId = req.params.roomId;
+    const roomDir = path.join(VIDEOS_DIR, roomId);
+    fs.ensureDirSync(roomDir);
+    cb(null, roomDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueName = `${uuidv4()}-${file.originalname}`;
+    cb(null, uniqueName);
+  }
 });
 
-// PostgreSQL 連接
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
-});
-
-// Multer 配置（內存存儲）
-const storage = multer.memoryStorage();
 const upload = multer({ 
   storage: storage,
   limits: {
@@ -42,39 +76,8 @@ const upload = multer({
   }
 });
 
-// 初始化數據庫表
-async function initDatabase() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS rooms (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS videos (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        room_id UUID REFERENCES rooms(id) ON DELETE CASCADE,
-        original_name VARCHAR(255) NOT NULL,
-        cloudinary_url TEXT NOT NULL,
-        cloudinary_public_id VARCHAR(255) NOT NULL,
-        file_size BIGINT,
-        duration FLOAT,
-        width INTEGER,
-        height INTEGER,
-        upload_order INTEGER,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    console.log('數據庫表初始化完成');
-  } catch (error) {
-    console.error('數據庫初始化錯誤:', error);
-  }
-}
+// 靜態文件服務 - 提供視頻文件訪問
+app.use('/videos', express.static(VIDEOS_DIR));
 
 // API 路由
 
@@ -82,16 +85,23 @@ async function initDatabase() {
 app.post('/api/rooms', async (req, res) => {
   try {
     const { name } = req.body;
+    const roomId = uuidv4();
     const roomName = name || `房間_${new Date().toLocaleString('zh-TW')}`;
     
-    const result = await pool.query(
-      'INSERT INTO rooms (name) VALUES ($1) RETURNING *',
-      [roomName]
-    );
+    const rooms = await readRooms();
+    rooms[roomId] = {
+      id: roomId,
+      name: roomName,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      videos: []
+    };
+    
+    await writeRooms(rooms);
     
     res.json({
       success: true,
-      room: result.rows[0]
+      room: rooms[roomId]
     });
   } catch (error) {
     console.error('創建房間錯誤:', error);
@@ -103,25 +113,16 @@ app.post('/api/rooms', async (req, res) => {
 app.get('/api/rooms/:roomId', async (req, res) => {
   try {
     const { roomId } = req.params;
+    const rooms = await readRooms();
     
-    const roomResult = await pool.query(
-      'SELECT * FROM rooms WHERE id = $1',
-      [roomId]
-    );
-    
-    if (roomResult.rows.length === 0) {
+    if (!rooms[roomId]) {
       return res.status(404).json({ success: false, error: '房間不存在' });
     }
     
-    const videosResult = await pool.query(
-      'SELECT * FROM videos WHERE room_id = $1 ORDER BY upload_order ASC',
-      [roomId]
-    );
-    
     res.json({
       success: true,
-      room: roomResult.rows[0],
-      videos: videosResult.rows
+      room: rooms[roomId],
+      videos: rooms[roomId].videos || []
     });
   } catch (error) {
     console.error('獲取房間信息錯誤:', error);
@@ -139,73 +140,40 @@ app.post('/api/rooms/:roomId/videos', upload.array('videos', 20), async (req, re
       return res.status(400).json({ success: false, error: '沒有上傳文件' });
     }
     
-    // 驗證房間是否存在
-    const roomCheck = await pool.query('SELECT id FROM rooms WHERE id = $1', [roomId]);
-    if (roomCheck.rows.length === 0) {
+    const rooms = await readRooms();
+    if (!rooms[roomId]) {
       return res.status(404).json({ success: false, error: '房間不存在' });
     }
     
     // 獲取當前最大的 upload_order
-    const orderResult = await pool.query(
-      'SELECT COALESCE(MAX(upload_order), 0) as max_order FROM videos WHERE room_id = $1',
-      [roomId]
-    );
-    let currentOrder = orderResult.rows[0].max_order;
+    const currentVideos = rooms[roomId].videos || [];
+    let maxOrder = currentVideos.length > 0 ? Math.max(...currentVideos.map(v => v.upload_order)) : 0;
     
     const uploadedVideos = [];
     
-    // 逐個上傳視頻到 Cloudinary
+    // 處理每個上傳的文件
     for (const file of files) {
-      try {
-        currentOrder++;
-        
-        // 上傳到 Cloudinary
-        const uploadResult = await new Promise((resolve, reject) => {
-          cloudinary.uploader.upload_stream(
-            {
-              resource_type: 'video',
-              folder: `videowall/${roomId}`,
-              use_filename: true,
-              unique_filename: true,
-            },
-            (error, result) => {
-              if (error) reject(error);
-              else resolve(result);
-            }
-          ).end(file.buffer);
-        });
-        
-        // 保存視頻信息到數據庫
-        const videoResult = await pool.query(`
-          INSERT INTO videos 
-          (room_id, original_name, cloudinary_url, cloudinary_public_id, file_size, duration, width, height, upload_order)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-          RETURNING *
-        `, [
-          roomId,
-          file.originalname,
-          uploadResult.secure_url,
-          uploadResult.public_id,
-          file.size,
-          uploadResult.duration,
-          uploadResult.width,
-          uploadResult.height,
-          currentOrder
-        ]);
-        
-        uploadedVideos.push(videoResult.rows[0]);
-        
-      } catch (uploadError) {
-        console.error(`上傳文件 ${file.originalname} 失敗:`, uploadError);
-        // 繼續處理其他文件，不中斷整個流程
-      }
+      maxOrder++;
+      
+      const videoInfo = {
+        id: uuidv4(),
+        room_id: roomId,
+        original_name: file.originalname,
+        file_name: file.filename,
+        file_path: `/videos/${roomId}/${file.filename}`,
+        file_size: file.size,
+        upload_order: maxOrder,
+        created_at: new Date().toISOString()
+      };
+      
+      uploadedVideos.push(videoInfo);
     }
     
-    // 更新房間的更新時間
-    await pool.query(
-      'UPDATE rooms SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
-      [roomId]
-    );
+    // 更新房間數據
+    rooms[roomId].videos = [...(rooms[roomId].videos || []), ...uploadedVideos];
+    rooms[roomId].updated_at = new Date().toISOString();
+    
+    await writeRooms(rooms);
     
     res.json({
       success: true,
@@ -223,29 +191,37 @@ app.post('/api/rooms/:roomId/videos', upload.array('videos', 20), async (req, re
 app.delete('/api/videos/:videoId', async (req, res) => {
   try {
     const { videoId } = req.params;
+    const rooms = await readRooms();
     
-    // 獲取視頻信息
-    const videoResult = await pool.query(
-      'SELECT * FROM videos WHERE id = $1',
-      [videoId]
-    );
+    // 查找包含該視頻的房間
+    let targetRoom = null;
+    let videoToDelete = null;
     
-    if (videoResult.rows.length === 0) {
+    for (const roomId in rooms) {
+      const room = rooms[roomId];
+      const videoIndex = room.videos.findIndex(v => v.id === videoId);
+      if (videoIndex !== -1) {
+        targetRoom = room;
+        videoToDelete = room.videos[videoIndex];
+        room.videos.splice(videoIndex, 1);
+        break;
+      }
+    }
+    
+    if (!videoToDelete) {
       return res.status(404).json({ success: false, error: '視頻不存在' });
     }
     
-    const video = videoResult.rows[0];
-    
-    // 從 Cloudinary 刪除視頻
+    // 刪除文件
+    const filePath = path.join(VIDEOS_DIR, videoToDelete.room_id, videoToDelete.file_name);
     try {
-      await cloudinary.uploader.destroy(video.cloudinary_public_id, { resource_type: 'video' });
-    } catch (cloudinaryError) {
-      console.error('從 Cloudinary 刪除視頻失敗:', cloudinaryError);
-      // 繼續執行數據庫刪除，即使 Cloudinary 刪除失敗
+      await fs.remove(filePath);
+    } catch (fileError) {
+      console.error('刪除文件失敗:', fileError);
     }
     
-    // 從數據庫刪除視頻記錄
-    await pool.query('DELETE FROM videos WHERE id = $1', [videoId]);
+    // 更新房間數據
+    await writeRooms(rooms);
     
     res.json({ success: true, message: '視頻刪除成功' });
     
@@ -257,13 +233,42 @@ app.delete('/api/videos/:videoId', async (req, res) => {
 
 // 健康檢查
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    message: '視頻電視牆 API 運行正常'
+  });
+});
+
+// 根路由
+app.get('/', (req, res) => {
+  res.json({
+    message: '🎥 視頻電視牆 API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      createRoom: 'POST /api/rooms',
+      getRoom: 'GET /api/rooms/:roomId',
+      uploadVideos: 'POST /api/rooms/:roomId/videos',
+      deleteVideo: 'DELETE /api/videos/:videoId'
+    }
+  });
+});
+
+// 錯誤處理中間件
+app.use((error, req, res, next) => {
+  console.error('服務器錯誤:', error);
+  res.status(500).json({ 
+    success: false, 
+    error: '服務器內部錯誤' 
+  });
 });
 
 // 啟動服務器
 app.listen(port, async () => {
-  console.log(`服務器運行在端口 ${port}`);
-  await initDatabase();
+  console.log(`🚀 服務器運行在端口 ${port}`);
+  await initStorage();
+  console.log('✅ 視頻電視牆 API 已啟動');
 });
 
 module.exports = app; 

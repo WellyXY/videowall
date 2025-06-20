@@ -7,7 +7,6 @@
 ### 1. 準備工作
 
 1. 註冊 [Railway](https://railway.app) 帳號
-2. 註冊 [Cloudinary](https://cloudinary.com) 帳號（免費額度足夠測試使用）
 
 ### 2. 部署步驟
 
@@ -18,26 +17,7 @@
    - 選擇您的 `videowall` 倉庫
    - 選擇 `server` 目錄作為根目錄
 
-2. **添加 PostgreSQL 數據庫**
-   - 在項目中點擊 "Add Service"
-   - 選擇 "PostgreSQL"
-   - Railway 會自動創建數據庫並設置 `DATABASE_URL` 環境變數
-
-3. **配置環境變數**
-   在 Railway 項目設置中添加以下環境變數：
-   ```
-   CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-   CLOUDINARY_API_KEY=your_cloudinary_api_key
-   CLOUDINARY_API_SECRET=your_cloudinary_api_secret
-   NODE_ENV=production
-   ```
-
-4. **獲取 Cloudinary 配置**
-   - 登入 [Cloudinary 控制台](https://cloudinary.com/console)
-   - 在 Dashboard 頁面找到 "Account Details"
-   - 複製 Cloud Name, API Key 和 API Secret
-
-5. **部署完成**
+2. **部署完成**
    - Railway 會自動構建和部署您的應用
    - 獲取生成的 URL（類似：`https://your-app-name.railway.app`）
 
@@ -75,7 +55,8 @@
 
 ## 注意事項
 
-- Cloudinary 免費額度：每月 25GB 存儲空間和 25GB 帶寬
 - Railway 免費額度：每月 500 小時運行時間
 - 視頻文件大小限制：100MB（可在代碼中調整）
-- 支持的視頻格式：所有瀏覽器支持的格式（MP4, WebM, OGV 等） 
+- 支持的視頻格式：所有瀏覽器支持的格式（MP4, WebM, OGV 等）
+- 視頻文件存儲在 Railway 的文件系統中，重新部署時可能丟失
+- 建議定期備份重要視頻文件 
