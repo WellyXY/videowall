@@ -107,13 +107,16 @@ const storage = multer.diskStorage({
 const upload = multer({ 
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 減少到 50MB 限制，避免內存問題
+    fileSize: 50 * 1024 * 1024, // 50MB 限制
+    files: 20, // 最多20個文件
+    fieldSize: 1024 * 1024, // 1MB 字段大小限制
   },
   fileFilter: (req, file, cb) => {
+    console.log('檢查文件類型:', file.mimetype, file.originalname);
     if (file.mimetype.startsWith('video/')) {
       cb(null, true);
     } else {
-      cb(new Error('只允許上傳視頻文件'), false);
+      cb(new Error('Only video files are allowed'), false);
     }
   }
 });
@@ -180,60 +183,77 @@ app.get('/api/rooms/:roomId', async (req, res) => {
 });
 
 // 上傳視頻到房間
-app.post('/api/rooms/:roomId/videos', upload.array('videos', 20), async (req, res) => {
-  try {
-    const { roomId } = req.params;
-    const files = req.files;
-    
-    if (!files || files.length === 0) {
-      return res.status(400).json({ success: false, error: '沒有上傳文件' });
+app.post('/api/rooms/:roomId/videos', (req, res) => {
+  console.log('收到上傳請求，房間ID:', req.params.roomId);
+  console.log('請求頭:', req.headers);
+  
+  upload.array('videos', 20)(req, res, async (err) => {
+    if (err) {
+      console.error('Multer 錯誤:', err);
+      return res.status(400).json({ 
+        success: false, 
+        error: 'File upload error', 
+        details: err.message,
+        code: err.code 
+      });
     }
     
-    const rooms = await readRooms();
-    if (!rooms[roomId]) {
-      return res.status(404).json({ success: false, error: '房間不存在' });
-    }
-    
-    // 獲取當前最大的 upload_order
-    const currentVideos = rooms[roomId].videos || [];
-    let maxOrder = currentVideos.length > 0 ? Math.max(...currentVideos.map(v => v.upload_order)) : 0;
-    
-    const uploadedVideos = [];
-    
-    // 處理每個上傳的文件
-    for (const file of files) {
-      maxOrder++;
+    try {
+      const { roomId } = req.params;
+      const files = req.files;
       
-      const videoInfo = {
-        id: uuidv4(),
-        room_id: roomId,
-        original_name: file.originalname,
-        file_name: file.filename,
-        file_path: `/videos/${roomId}/${file.filename}`,
-        file_size: file.size,
-        upload_order: maxOrder,
-        created_at: new Date().toISOString()
-      };
+      console.log('上傳的文件:', files ? files.length : 0);
       
-      uploadedVideos.push(videoInfo);
+      if (!files || files.length === 0) {
+        return res.status(400).json({ success: false, error: 'No files uploaded' });
+      }
+      
+      const rooms = await readRooms();
+      if (!rooms[roomId]) {
+        return res.status(404).json({ success: false, error: 'Room not found' });
+      }
+      
+      // 獲取當前最大的 upload_order
+      const currentVideos = rooms[roomId].videos || [];
+      let maxOrder = currentVideos.length > 0 ? Math.max(...currentVideos.map(v => v.upload_order)) : 0;
+      
+      const uploadedVideos = [];
+      
+      // 處理每個上傳的文件
+      for (const file of files) {
+        maxOrder++;
+        
+        const videoInfo = {
+          id: uuidv4(),
+          room_id: roomId,
+          original_name: file.originalname,
+          file_name: file.filename,
+          file_path: `/videos/${roomId}/${file.filename}`,
+          file_size: file.size,
+          upload_order: maxOrder,
+          created_at: new Date().toISOString()
+        };
+        
+        uploadedVideos.push(videoInfo);
+      }
+      
+      // 更新房間數據
+      rooms[roomId].videos = [...(rooms[roomId].videos || []), ...uploadedVideos];
+      rooms[roomId].updated_at = new Date().toISOString();
+      
+      await writeRooms(rooms);
+      
+      res.json({
+        success: true,
+        message: `Successfully uploaded ${uploadedVideos.length} videos`,
+        videos: uploadedVideos
+      });
+      
+    } catch (error) {
+      console.error('上傳視頻錯誤:', error);
+      res.status(500).json({ success: false, error: 'Upload failed' });
     }
-    
-    // 更新房間數據
-    rooms[roomId].videos = [...(rooms[roomId].videos || []), ...uploadedVideos];
-    rooms[roomId].updated_at = new Date().toISOString();
-    
-    await writeRooms(rooms);
-    
-    res.json({
-      success: true,
-      message: `成功上傳 ${uploadedVideos.length} 個視頻`,
-      videos: uploadedVideos
-    });
-    
-  } catch (error) {
-    console.error('上傳視頻錯誤:', error);
-    res.status(500).json({ success: false, error: '上傳視頻失敗' });
-  }
+  });
 });
 
 // 刪除視頻

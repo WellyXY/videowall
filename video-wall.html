@@ -575,17 +575,31 @@
         async function uploadToCloud(files) {
             updateStatus('Uploading videos to cloud...', 'info');
             
+            console.log('準備上傳文件:', files.length);
+            console.log('文件信息:', files.map(f => ({ name: f.name, size: f.size, type: f.type })));
+            
             const formData = new FormData();
-            files.forEach(file => {
+            files.forEach((file, index) => {
+                console.log(`添加文件 ${index}:`, file.name, file.type);
                 formData.append('videos', file);
             });
             
+            // 調試：列出 FormData 內容
+            console.log('FormData 內容:');
+            for (let [key, value] of formData.entries()) {
+                console.log(key, value);
+            }
+            
             try {
+                console.log('發送請求到:', `${API_BASE_URL}/api/rooms/${currentRoomId}/videos`);
+                
                 const response = await fetch(`${API_BASE_URL}/api/rooms/${currentRoomId}/videos`, {
                     method: 'POST',
                     body: formData,
+                    // 不設置 Content-Type，讓瀏覽器自動設置 multipart/form-data
                 });
                 
+                console.log('響應狀態:', response.status);
                 const data = await response.json();
                 
                 if (data.success) {
