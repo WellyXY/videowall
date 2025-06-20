@@ -563,6 +563,12 @@
         async function handleFiles(event) {
             const files = Array.from(event.target.files).filter(file => file.type.startsWith('video/'));
             if (files.length === 0) return;
+            
+            // 檢查文件數量限制
+            if (files.length > 30) {
+                updateStatus(`Too many files selected. Maximum 30 files allowed per upload. You selected ${files.length} files.`, 'error');
+                return;
+            }
 
             if (isCloudMode && currentRoomId) {
                 await uploadToCloud(files);
