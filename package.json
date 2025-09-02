@@ -1,0 +1,12 @@
+{
+  "name": "videowall-frontend",
+  "version": "1.0.0",
+  "description": "Video Wall Frontend - Static Files",
+  "scripts": {
+    "build": "echo 'No build needed for static frontend'",
+    "start": "echo 'Static frontend - no start command needed'"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 

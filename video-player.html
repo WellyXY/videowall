@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>本地視頻播放器</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 800px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            font-weight: 700;
+        }
+
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background: #f8f9ff;
+        }
+
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8ebff;
+            transform: scale(1.02);
+        }
+
+        .upload-text {
+            font-size: 1.2em;
+            color: #666;
+            margin-bottom: 15px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .video-container {
+            margin-top: 30px;
+            display: none;
+        }
+
+        video {
+            width: 100%;
+            max-width: 700px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .video-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9ff;
+            border-radius: 10px;
+            text-align: left;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .control-btn:hover {
+            background: #764ba2;
+        }
+
+        .error {
+            color: #e74c3c;
+            background: #ffeaea;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 本地視頻播放器</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-text">
+                拖拽視頻文件到這裡，或點擊選擇文件
+            </div>
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                選擇視頻文件
+            </button>
+            <input type="file" id="fileInput" class="file-input" accept="video/*" multiple>
+        </div>
+
+        <div class="error" id="errorMsg"></div>
+
+        <div class="video-container" id="videoContainer">
+            <video id="videoPlayer" controls autoplay muted>
+                您的瀏覽器不支持視頻播放。
+            </video>
+            
+            <div class="video-info" id="videoInfo"></div>
+            
+            <div class="controls">
+                <button class="control-btn" onclick="togglePlay()">播放/暫停</button>
+                <button class="control-btn" onclick="toggleMute()">靜音/取消靜音</button>
+                <button class="control-btn" onclick="changeSpeed(0.5)">0.5x</button>
+                <button class="control-btn" onclick="changeSpeed(1)">1x</button>
+                <button class="control-btn" onclick="changeSpeed(1.5)">1.5x</button>
+                <button class="control-btn" onclick="changeSpeed(2)">2x</button>
+                <button class="control-btn" onclick="toggleFullscreen()">全屏</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const videoContainer = document.getElementById('videoContainer');
+        const videoPlayer = document.getElementById('videoPlayer');
+        const videoInfo = document.getElementById('videoInfo');
+        const errorMsg = document.getElementById('errorMsg');
+
+        let currentFiles = [];
+        let currentIndex = 0;
+
+        // 文件選擇事件
+        fileInput.addEventListener('change', handleFiles);
+
+        // 拖拽事件
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('video/'));
+            if (files.length > 0) {
+                handleFileList(files);
+            } else {
+                showError('請選擇視頻文件！');
+            }
+        });
+
+        function handleFiles(event) {
+            const files = Array.from(event.target.files);
+            handleFileList(files);
+        }
+
+        function handleFileList(files) {
+            const videoFiles = files.filter(file => file.type.startsWith('video/'));
+            
+            if (videoFiles.length === 0) {
+                showError('請選擇有效的視頻文件！');
+                return;
+            }
+
+            currentFiles = videoFiles;
+            currentIndex = 0;
+            loadVideo(currentFiles[currentIndex]);
+            hideError();
+        }
+
+        function loadVideo(file) {
+            const url = URL.createObjectURL(file);
+            videoPlayer.src = url;
+            videoContainer.style.display = 'block';
+            
+            // 顯示視頻信息
+            videoInfo.innerHTML = `
+                <strong>文件名：</strong>${file.name}<br>
+                <strong>大小：</strong>${formatFileSize(file.size)}<br>
+                <strong>類型：</strong>${file.type}<br>
+                ${currentFiles.length > 1 ? `<strong>當前：</strong>${currentIndex + 1} / ${currentFiles.length}` : ''}
+            `;
+
+            // 如果有多個文件，添加切換按鈕
+            if (currentFiles.length > 1) {
+                addNavigationControls();
+            }
+
+            // 視頻加載完成後自動播放
+            videoPlayer.addEventListener('loadeddata', () => {
+                videoPlayer.play().catch(e => {
+                    console.log('自動播放失敗，可能需要用戶交互');
+                });
+            });
+
+            // 視頻結束後自動播放下一個
+            videoPlayer.addEventListener('ended', () => {
+                if (currentFiles.length > 1 && currentIndex < currentFiles.length - 1) {
+                    nextVideo();
+                }
+            });
+        }
+
+        function addNavigationControls() {
+            const controls = document.querySelector('.controls');
+            
+            // 移除舊的導航按鈕
+            const oldNavBtns = controls.querySelectorAll('.nav-btn');
+            oldNavBtns.forEach(btn => btn.remove());
+            
+            // 添加新的導航按鈕
+            const prevBtn = document.createElement('button');
+            prevBtn.className = 'control-btn nav-btn';
+            prevBtn.textContent = '上一個';
+            prevBtn.onclick = prevVideo;
+            
+            const nextBtn = document.createElement('button');
+            nextBtn.className = 'control-btn nav-btn';
+            nextBtn.textContent = '下一個';
+            nextBtn.onclick = nextVideo;
+            
+            controls.insertBefore(prevBtn, controls.firstChild);
+            controls.insertBefore(nextBtn, controls.children[1]);
+        }
+
+        function prevVideo() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                loadVideo(currentFiles[currentIndex]);
+            }
+        }
+
+        function nextVideo() {
+            if (currentIndex < currentFiles.length - 1) {
+                currentIndex++;
+                loadVideo(currentFiles[currentIndex]);
+            }
+        }
+
+        function togglePlay() {
+            if (videoPlayer.paused) {
+                videoPlayer.play();
+            } else {
+                videoPlayer.pause();
+            }
+        }
+
+        function toggleMute() {
+            videoPlayer.muted = !videoPlayer.muted;
+        }
+
+        function changeSpeed(speed) {
+            videoPlayer.playbackRate = speed;
+        }
+
+        function toggleFullscreen() {
+            if (videoPlayer.requestFullscreen) {
+                videoPlayer.requestFullscreen();
+            } else if (videoPlayer.webkitRequestFullscreen) {
+                videoPlayer.webkitRequestFullscreen();
+            } else if (videoPlayer.msRequestFullscreen) {
+                videoPlayer.msRequestFullscreen();
+            }
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showError(message) {
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+        }
+
+        function hideError() {
+            errorMsg.style.display = 'none';
+        }
+    </script>
+</body>
+</html> 

@@ -1,0 +1,19 @@
+{
+  "name": "videowall-api-simple",
+  "version": "1.0.0",
+  "description": "視頻電視牆 API - 內存版本",
+  "main": "index-simple.js",
+  "scripts": {
+    "start": "node index-simple.js",
+    "dev": "node index-simple.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "uuid": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+} 
